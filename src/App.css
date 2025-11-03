@@ -1,0 +1,52 @@
+/* For WebKit browsers (Chrome, Safari, Edge) */
+body::-webkit-scrollbar {
+  display: none;
+    scrollbar-width: none; 
+    -ms-overflow-style: none;/* hides scrollbar but allows scrolling */
+    font-family:Verdana, Geneva, Tahoma, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+
+/* for alert */
+.custom-alert {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: white;
+  color: black;
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  z-index: 9999;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+
+/* loginpopup */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* #my-bg{
+  background: url('../public/img/a3.jpg');
+} */
