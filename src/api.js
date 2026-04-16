@@ -1,24 +1,25 @@
 // src/api.js
 import axios from "axios";
-import { BASE_URL } from "./config"; // ✅ Correct import
+import { BASE_URL } from "./config";
 
 const api = axios.create({
-   baseURL: `${BASE_URL}/api`, // ✅ includes /api
-  // baseURL: "http://localhost:5000",
+  baseURL: BASE_URL, // ✅ NO /api here
   headers: { "Content-Type": "application/json" },
 });
 
+// ---------------- TOKEN INTERCEPTOR ----------------
 api.interceptors.request.use((config) => {
-  const adminEndpoints = ["/api/admin", "/api/admin/me", "/api/admin/login"];
-  const isAdmin = adminEndpoints.some((url) => config.url?.includes(url));
+  const isAdmin = config.url?.includes("/admin");
 
   const token = isAdmin
     ? localStorage.getItem("adminToken")
     : localStorage.getItem("token");
 
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
   return config;
 });
-
 
 export default api;
