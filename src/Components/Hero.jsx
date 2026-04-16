@@ -82,7 +82,7 @@ const Hero = () => {
 >
   {/* 🏙️ Background Image */}
   <div
-    className="absolute inset-0 bg-cover bg-center transition-opacity duration-800 opacity-10 group-hover:opacity-100"
+    className="absolute inset-0 bg-cover bg-center transition-opacity duration-800 opacity-0 group-hover:opacity-80"
     style={{
       backgroundImage:
         "url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1920&q=80')",

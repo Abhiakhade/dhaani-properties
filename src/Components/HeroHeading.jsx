@@ -19,7 +19,7 @@ const HeroHeading = () => {
           duration: 4,
           ease: "linear",
         }}
-        className="text-4xl md:text-6xl font-extrabold mb-4 uppercase bg-gradient-to-r from-green-400 via-emerald-400 to-green-600 bg-[length:200%_auto] bg-clip-text text-transparent"
+        className="text-4xl md:text-7xl font-extrabold mb-4 uppercase bg-gradient-to-r from-green-400 via-emerald-400 to-green-600 bg-[length:200%_auto] bg-clip-text text-transparent"
       >
         Find Your Dream{" "}
         <span className="text-white drop-shadow-[0_2px_6px_rgba(16,185,129,0.4)]">

@@ -39,7 +39,7 @@ useEffect(() => {
   return (
     <section className="bg-gray-50 py-16">
       <div className="max-w-7xl mx-auto px-5 text-center">
-        <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-12">
+        <h2 className="text-3xl  md:text-4xl font-bold text-gray-800 mb-12">
           Latest Properties
         </h2>
 

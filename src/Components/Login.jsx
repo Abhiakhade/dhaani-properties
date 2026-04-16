@@ -79,7 +79,7 @@ const Login = () => {
         localStorage.setItem("token", data.token);
         localStorage.setItem("role", "user");
         alert(`✅ Login successful!`);
-        navigate("/dashboard", { replace: true });
+        navigate("/", { replace: true });
       } else {
         alert("🎉 Registration successful! Please log in.");
         setIsLogin(true);
