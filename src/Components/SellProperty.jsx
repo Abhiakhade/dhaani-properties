@@ -1,341 +1,732 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { BASE_URL } from "../config"; 
-import { 
-  FaMapMarkerAlt, 
-  FaRulerCombined, 
-  FaMoneyBillWave, 
-  FaBed, 
-  FaCar, 
-  FaHome, 
-  FaUser, 
-  FaPhoneAlt,
-  FaFileImage
+import { BASE_URL } from "../config";
+
+import {
+  FaMapMarkerAlt,
+  FaRulerCombined,
+  FaMoneyBillWave,
+  FaBed,
+  FaCar,
+  FaHome,
+  FaFileImage,
+  FaCheckCircle,
+  FaExclamationCircle,
 } from "react-icons/fa";
 
-// --- Helper Components ---
+// ======================================================
+// CONSTANTS
+// ======================================================
 
-/**
- * Reusable input field with modern styling.
- */
-const InputField = ({ label, name, type = "text", value, onChange }) => (
-  <div className="space-y-1">
-    <label className="block text-gray-700 font-medium text-sm">
+const MAX_IMAGES = 5;
+const MAX_DESCRIPTION_LENGTH = 500;
+
+const INITIAL_FORM_DATA = {
+  name: "",
+  phone: "",
+  address: "",
+  city: "",
+  propertyType: "",
+  type: "",
+  bhk: "",
+  beds: "",
+  parking: "",
+  area: "",
+  price: "",
+  description: "",
+};
+
+// ======================================================
+// REUSABLE INPUT
+// ======================================================
+
+const InputField = ({
+  label,
+  name,
+  type = "text",
+  value,
+  onChange,
+  placeholder,
+  min,
+}) => (
+  <div className="space-y-1.5">
+    <label htmlFor={name} className="block text-sm font-semibold text-gray-700">
       {label}
     </label>
+
     <input
-      type={type}
+      id={name}
       name={name}
+      type={type}
       value={value}
       onChange={onChange}
+      min={min}
       required
-      placeholder={`Enter ${label.toLowerCase()}`}
-      className="w-full border border-gray-300 rounded-lg p-3 text-gray-800 shadow-sm transition duration-150 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+      placeholder={placeholder || `Enter ${label.toLowerCase()}`}
+      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3
+                 text-gray-800 outline-none transition
+                 placeholder:text-gray-400
+                 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
     />
   </div>
 );
 
-/**
- * Reusable select field with modern styling.
- */
+// ======================================================
+// REUSABLE SELECT
+// ======================================================
+
 const SelectField = ({ label, name, value, onChange, children }) => (
-  <div className="space-y-1">
-    <label className="block text-gray-700 font-medium text-sm">
+  <div className="space-y-1.5">
+    <label htmlFor={name} className="block text-sm font-semibold text-gray-700">
       {label}
     </label>
+
     <select
+      id={name}
       name={name}
       value={value}
       onChange={onChange}
       required
-      className="w-full border border-gray-300 rounded-lg p-3 shadow-sm transition duration-150 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white appearance-none"
+      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3
+                 text-gray-800 outline-none transition
+                 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
     >
       {children}
     </select>
   </div>
 );
 
-/**
- * Section wrapper for grouping form fields.
- */
+// ======================================================
+// FORM SECTION
+// ======================================================
+
 const FormSection = ({ title, icon, children }) => (
-  <div className="border border-gray-200 p-6 rounded-xl shadow-lg bg-white transition duration-300 hover:shadow-xl">
-    <h3 className="text-xl font-bold text-gray-900 mb-4 border-b pb-3 flex items-center">
-      <span className="mr-3 text-blue-600">{icon}</span> {title}
-    </h3>
+  <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:shadow-md">
+    <div className="mb-6 flex items-center gap-3 border-b border-gray-100 pb-4">
+      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+        {icon}
+      </div>
+
+      <h2 className="text-xl font-bold text-gray-900">{title}</h2>
+    </div>
+
     {children}
-  </div>
+  </section>
 );
 
-// --- Main Component ---
+// ======================================================
+// MAIN COMPONENT
+// ======================================================
 
 const SellProperty = () => {
-  const [formData, setFormData] = useState({
-    name: "",
-    phone: "",
-    address: "",
-    city: "",
-    propertyType: "",
-    type: "", // Residential/Commercial
-    bhk: "",
-    beds: "",
-    parking: "",
-    area: "", // Sq Ft
-    price: "", // INR
-    description: "",
-  });
+  const [formData, setFormData] = useState(INITIAL_FORM_DATA);
+
   const [images, setImages] = useState([]);
   const [preview, setPreview] = useState([]);
-  const [message, setMessage] = useState("");
 
-  // Clean up preview URLs when component unmounts or previews change
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("");
+
+  const [loading, setLoading] = useState(false);
+
+  // ====================================================
+  // CLEANUP IMAGE PREVIEWS
+  // ====================================================
+
   useEffect(() => {
     return () => {
-      preview.forEach(URL.revokeObjectURL);
+      preview.forEach((url) => URL.revokeObjectURL(url));
     };
   }, [preview]);
 
-  // Handle input changes
+  // ====================================================
+  // HANDLE INPUT
+  // ====================================================
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
-  // Handle image upload and create URL previews
+  // ====================================================
+  // HANDLE IMAGE UPLOAD
+  // ====================================================
+
   const handleImageChange = (e) => {
-    // Limit to 5 files
-    const files = Array.from(e.target.files).slice(0, 5); 
-    setImages(files);
-    
-    // Create new previews
-    const filePreviews = files.map((file) => URL.createObjectURL(file));
-    setPreview(filePreviews);
+    const selectedFiles = Array.from(e.target.files || []);
+
+    if (!selectedFiles.length) return;
+
+    const files = selectedFiles.slice(0, MAX_IMAGES);
+
+    if (selectedFiles.length > MAX_IMAGES) {
+      setMessage(`You can upload a maximum of ${MAX_IMAGES} images.`);
+      setMessageType("error");
+    }
+
+    // Validate file size
+    const validFiles = files.filter((file) => {
+      const maxSize = 5 * 1024 * 1024; // 5MB
+
+      if (file.size > maxSize) {
+        setMessage(`${file.name} is larger than 5MB and was removed.`);
+        setMessageType("error");
+
+        return false;
+      }
+
+      return true;
+    });
+
+    setImages(validFiles);
+
+    const urls = validFiles.map((file) => URL.createObjectURL(file));
+
+    setPreview(urls);
   };
 
-  // Submit form
+  // ====================================================
+  // REMOVE IMAGE
+  // ====================================================
+
+  const removeImage = (index) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+
+    setPreview((prev) => {
+      const updated = [...prev];
+
+      URL.revokeObjectURL(updated[index]);
+
+      updated.splice(index, 1);
+
+      return updated;
+    });
+  };
+
+  // ====================================================
+  // FORMAT PRICE
+  // ====================================================
+
+  const formatPrice = (price) => {
+    if (!price || Number.isNaN(Number(price))) {
+      return "Price";
+    }
+
+    return Number(price).toLocaleString("en-IN");
+  };
+
+  // ====================================================
+  // SUBMIT FORM
+  // ====================================================
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage("");
 
-    const formDataToSend = new FormData();
-    Object.entries(formData).forEach(([key, value]) =>
-      formDataToSend.append(key, value)
-    );
-    images.forEach((img) => formDataToSend.append("images", img));
+    if (loading) return;
+
+    setMessage("");
+    setMessageType("");
+
+    // Basic validation
+    if (!BASE_URL) {
+      setMessage("Backend URL is not configured. Please check VITE_API_URL.");
+      setMessageType("error");
+      return;
+    }
+
+    if (images.length === 0) {
+      setMessage("Please upload at least one property image.");
+      setMessageType("error");
+      return;
+    }
+
+    if (formData.description.trim().length < 20) {
+      setMessage(
+        "Please provide a property description of at least 20 characters.",
+      );
+      setMessageType("error");
+      return;
+    }
 
     try {
-      // NOTE: Ensure your BASE_URL and backend endpoint are correct
-      const res = await axios.post(`${BASE_URL}/api/sell-property`, formDataToSend, {
-        headers: { "Content-Type": "multipart/form-data" },
+      setLoading(true);
+
+      const formDataToSend = new FormData();
+
+      Object.entries(formData).forEach(([key, value]) => {
+        formDataToSend.append(key, value);
       });
 
-      if (res.data.success) {
-        setMessage("✅ Listing Successful! Our team will review your submission shortly.");
-        // Reset form
-        setFormData({
-          name: "", phone: "", address: "", city: "", propertyType: "", type: "", bhk: "", beds: "", parking: "", area: "", price: "", description: "",
-        });
+      images.forEach((image) => {
+        formDataToSend.append("images", image);
+      });
+
+      const response = await axios.post(
+        `${BASE_URL}/api/sell-property`,
+        formDataToSend,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        },
+      );
+
+      if (response.data?.success) {
+        setMessage(
+          "Your property has been submitted successfully. Our team will review the listing shortly.",
+        );
+
+        setMessageType("success");
+
+        setFormData(INITIAL_FORM_DATA);
         setImages([]);
         setPreview([]);
+
+        // Reset file input
+        const fileInput = document.getElementById("property-images");
+
+        if (fileInput) {
+          fileInput.value = "";
+        }
+      } else {
+        throw new Error(response.data?.message || "Unable to submit property.");
       }
     } catch (error) {
-      console.error("Error submitting property:", error);
-      setMessage("❌ Submission Failed. Please ensure all fields are correct and try again.");
+      console.error("Property submission error:", error);
+
+      const errorMessage =
+        error.response?.data?.message ||
+        "Unable to submit your property. Please try again.";
+
+      setMessage(errorMessage);
+      setMessageType("error");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Function to format price with commas for INR
-  const formatPrice = (price) => {
-    if (!price || isNaN(Number(price))) return "Price";
-    // Indian number system formatting (Lakhs, Crores)
-    return Number(price).toLocaleString('en-IN'); 
-  }
+  // ====================================================
+  // UI
+  // ====================================================
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-12">
-      <div className="max-w-7xl mx-auto">
-        
-        {/* --- Header --- */}
-        <div className="text-center mb-10">
-            <h1 className="text-4xl font-extrabold text-gray-900 mb-2 flex items-center justify-center">
-                <FaHome className="mr-3 text-blue-600" /> List Your Property
-            </h1>
-            <p className="text-gray-600 text-lg">
-                Complete the form to submit your property for sale. Maximum 5 high-quality images.
-            </p>
+    <div className="min-h-screen bg-gray-50 px-4 py-12 sm:px-6 lg:px-12">
+      <div className="mx-auto max-w-7xl">
+        {/* ==============================================
+            HEADER
+        ============================================== */}
+
+        <div className="mb-10 text-center">
+          <div className="mb-3 flex justify-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+              <FaHome size={26} />
+            </div>
+          </div>
+
+          <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
+            List Your Property
+          </h1>
+
+          <p className="mx-auto mt-3 max-w-2xl text-gray-600">
+            Provide accurate property details and high-quality images to create
+            an attractive listing.
+          </p>
         </div>
-        
-        {/* --- Main Grid Layout --- */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
-          
-          {/* --- Left: Form (2/3 width) --- */}
-          <div className="lg:col-span-2 space-y-8">
+
+        {/* ==============================================
+            MAIN LAYOUT
+        ============================================== */}
+
+        <div className="grid items-start gap-8 lg:grid-cols-3">
+          {/* ============================================
+              FORM
+          ============================================ */}
+
+          <div className="space-y-8 lg:col-span-2">
             <form onSubmit={handleSubmit} className="space-y-8">
-              
-              {/* Contact Section */}
+              {/* ----------------------------------------
+                  CONTACT
+              ---------------------------------------- */}
+
               <FormSection title="Contact & Location" icon={<FaMapMarkerAlt />}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <InputField label="Full Name" name="name" value={formData.name} onChange={handleChange} />
-                  <InputField label="Contact Number" name="phone" type="tel" value={formData.phone} onChange={handleChange} />
-                  <InputField label="Address" name="address" value={formData.address} onChange={handleChange} />
-                  <InputField label="City" name="city" value={formData.city} onChange={handleChange} />
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  <InputField
+                    label="Full Name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder="Enter your full name"
+                  />
+
+                  <InputField
+                    label="Contact Number"
+                    name="phone"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    placeholder="Enter your phone number"
+                  />
+
+                  <InputField
+                    label="Address"
+                    name="address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    placeholder="Enter property address"
+                  />
+
+                  <InputField
+                    label="City"
+                    name="city"
+                    value={formData.city}
+                    onChange={handleChange}
+                    placeholder="Enter city"
+                  />
                 </div>
               </FormSection>
 
-              {/* Property Details */}
+              {/* ----------------------------------------
+                  PROPERTY DETAILS
+              ---------------------------------------- */}
+
               <FormSection title="Property Details" icon={<FaHome />}>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                  
-                  <SelectField label="Property Type" name="propertyType" value={formData.propertyType} onChange={handleChange}>
-                    <option value="">Select Type</option>
-                    {["Flat", "House", "Plot", "Office", "Shop"].map(type => (<option key={type} value={type}>{type}</option>))}
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3">
+                  <SelectField
+                    label="Property Type"
+                    name="propertyType"
+                    value={formData.propertyType}
+                    onChange={handleChange}
+                  >
+                    <option value="">Select Property Type</option>
+
+                    {["Flat", "House", "Plot", "Office", "Shop"].map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
                   </SelectField>
 
-                  <SelectField label="Listing Type" name="type" value={formData.type} onChange={handleChange}>
+                  <SelectField
+                    label="Listing Type"
+                    name="type"
+                    value={formData.type}
+                    onChange={handleChange}
+                  >
                     <option value="">Select Category</option>
+
                     <option value="Residential">Residential</option>
+
                     <option value="Commercial">Commercial</option>
                   </SelectField>
 
-                  <SelectField label="BHK" name="bhk" value={formData.bhk} onChange={handleChange}>
-                    <option value="">Select</option>
-                    {[1, 2, 3, 4, 5, 6].map((num) => (<option key={num} value={`${num} BHK`}>{num} BHK</option>))}
+                  <SelectField
+                    label="BHK"
+                    name="bhk"
+                    value={formData.bhk}
+                    onChange={handleChange}
+                  >
+                    <option value="">Select BHK</option>
+
+                    {[1, 2, 3, 4, 5, 6].map((number) => (
+                      <option key={number} value={`${number} BHK`}>
+                        {number} BHK
+                      </option>
+                    ))}
                   </SelectField>
 
-                  <InputField label="Beds" name="beds" type="number" value={formData.beds} onChange={handleChange} />
-                  
-                  <SelectField label="Parking" name="parking" value={formData.parking} onChange={handleChange}>
-                    <option value="">Select</option>
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
+                  <InputField
+                    label="Beds"
+                    name="beds"
+                    type="number"
+                    min="0"
+                    value={formData.beds}
+                    onChange={handleChange}
+                    placeholder="Number of beds"
+                  />
+
+                  <SelectField
+                    label="Parking"
+                    name="parking"
+                    value={formData.parking}
+                    onChange={handleChange}
+                  >
+                    <option value="">Select Parking</option>
+
+                    <option value="Yes">Available</option>
+                    <option value="No">Not Available</option>
                   </SelectField>
 
-                  <InputField label="Area (Sq Ft)" name="area" type="number" value={formData.area} onChange={handleChange} />
+                  <InputField
+                    label="Area (Sq Ft)"
+                    name="area"
+                    type="number"
+                    min="1"
+                    value={formData.area}
+                    onChange={handleChange}
+                    placeholder="e.g. 1200"
+                  />
                 </div>
 
-                <div className="mt-6 space-y-6">
-                    <InputField label="Expected Price (₹)" name="price" type="number" value={formData.price} onChange={handleChange} />
+                {/* PRICE */}
 
-                    <div>
-                        <label className="block text-gray-700 font-medium text-sm mb-1">Description</label>
-                        <textarea
-                          name="description"
-                          value={formData.description}
-                          onChange={handleChange}
-                          rows="4"
-                          className="w-full border border-gray-300 rounded-lg p-3 text-gray-800 shadow-sm transition duration-150 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="A detailed description helps sell your property faster. Highlight key features, amenities, and proximity to important places."
-                        />
-                    </div>
+                <div className="mt-6">
+                  <InputField
+                    label="Expected Price (₹)"
+                    name="price"
+                    type="number"
+                    min="1"
+                    value={formData.price}
+                    onChange={handleChange}
+                    placeholder="Enter expected price"
+                  />
                 </div>
 
+                {/* DESCRIPTION */}
+
+                <div className="mt-6">
+                  <div className="mb-2 flex items-center justify-between">
+                    <label
+                      htmlFor="description"
+                      className="text-sm font-semibold text-gray-700"
+                    >
+                      Property Description
+                    </label>
+
+                    <span className="text-xs text-gray-400">
+                      {formData.description.length}/{MAX_DESCRIPTION_LENGTH}
+                    </span>
+                  </div>
+
+                  <textarea
+                    id="description"
+                    name="description"
+                    value={formData.description}
+                    onChange={(e) => {
+                      if (e.target.value.length <= MAX_DESCRIPTION_LENGTH) {
+                        handleChange(e);
+                      }
+                    }}
+                    rows={5}
+                    required
+                    placeholder="Describe the property, key features, amenities, nearby schools, markets, transportation and other important details..."
+                    className="w-full resize-none rounded-lg border border-gray-300
+                               bg-white px-4 py-3 text-gray-800 outline-none
+                               transition placeholder:text-gray-400
+                               focus:border-blue-500
+                               focus:ring-2 focus:ring-blue-100"
+                  />
+
+                  <p className="mt-2 text-xs text-gray-500">
+                    Tip: Mention the property's key features, amenities,
+                    location advantages and nearby facilities.
+                  </p>
+                </div>
               </FormSection>
 
-              {/* Image Upload */}
-              <FormSection title="Property Images (Max 5)" icon={<FaFileImage />}>
+              {/* ----------------------------------------
+                  IMAGES
+              ---------------------------------------- */}
+
+              <FormSection
+                title={`Property Images (${images.length}/${MAX_IMAGES})`}
+                icon={<FaFileImage />}
+              >
                 <input
+                  id="property-images"
                   type="file"
                   multiple
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   onChange={handleImageChange}
-                  className="w-full text-sm border border-gray-300 rounded-lg p-3 cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  className="w-full cursor-pointer rounded-lg border
+                             border-gray-300 bg-white p-3 text-sm
+                             file:mr-4 file:rounded-full file:border-0
+                             file:bg-blue-50 file:px-4 file:py-2
+                             file:font-semibold file:text-blue-700
+                             hover:file:bg-blue-100"
                 />
 
-                {/* Image Previews */}
+                <p className="mt-2 text-xs text-gray-500">
+                  Upload up to 5 images. Maximum 5MB per image.
+                </p>
+
+                {/* IMAGE PREVIEW */}
+
                 {preview.length > 0 && (
-                    <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-4">
-                        {preview.map((src, index) => (
-                            <div key={index} className="relative w-full h-20 rounded-lg overflow-hidden border-2 border-gray-200">
-                                <img src={src} alt={`Property preview ${index + 1}`} className="w-full h-full object-cover" />
-                            </div>
-                        ))}
-                    </div>
+                  <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
+                    {preview.map((src, index) => (
+                      <div
+                        key={src}
+                        className="group relative h-24 overflow-hidden rounded-xl border border-gray-200"
+                      >
+                        <img
+                          src={src}
+                          alt={`Property preview ${index + 1}`}
+                          className="h-full w-full object-cover"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute right-1 top-1 hidden rounded-full
+                                     bg-black/70 px-2 py-1 text-xs text-white
+                                     group-hover:block"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </FormSection>
+
+              {/* ----------------------------------------
+                  SUBMIT
+              ---------------------------------------- */}
 
               <button
                 type="submit"
-                className="w-full bg-black text-white py-4 mt-4 rounded-xl font-extrabold text-xl uppercase hover:bg-gray-800 transition duration-300 shadow-xl tracking-wider"
+                disabled={loading}
+                className="flex w-full items-center justify-center gap-3
+                           rounded-xl bg-black py-4 text-lg font-bold
+                           uppercase tracking-wide text-white
+                           shadow-lg transition
+                           hover:bg-gray-800
+                           disabled:cursor-not-allowed
+                           disabled:bg-gray-400"
               >
-                Submit Property Listing
+                {loading ? (
+                  <>
+                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Submitting...
+                  </>
+                ) : (
+                  "Submit Property Listing"
+                )}
               </button>
             </form>
 
-            {/* Submission Message */}
+            {/* ==========================================
+                MESSAGE
+            ========================================== */}
+
             {message && (
-              <p
-                className={`mt-6 text-center text-base font-semibold p-4 rounded-xl ${
-                  message.startsWith("✅")
-                    ? "bg-green-100 text-green-800 border-l-4 border-green-500"
-                    : "bg-red-100 text-red-800 border-l-4 border-red-500"
-                } transition duration-300`}
+              <div
+                className={`flex items-start gap-3 rounded-xl border p-4 text-sm font-semibold ${
+                  messageType === "success"
+                    ? "border-green-200 bg-green-50 text-green-800"
+                    : "border-red-200 bg-red-50 text-red-800"
+                }`}
               >
-                {message}
-              </p>
+                {messageType === "success" ? (
+                  <FaCheckCircle className="mt-0.5 shrink-0" />
+                ) : (
+                  <FaExclamationCircle className="mt-0.5 shrink-0" />
+                )}
+
+                <span>{message}</span>
+              </div>
             )}
           </div>
 
-          {/* --- Right: Real-Time Preview (1/3 width, smaller card) --- */}
-          <div className="lg:col-span-1 sticky top-12 space-y-6">
-            <h2 className="text-2xl font-bold text-gray-800 flex items-center">
-              <FaHome className="mr-2 text-blue-500" /> Live Listing Preview
-            </h2>
+          {/* ============================================
+              LIVE PREVIEW
+          ============================================ */}
 
-            {/* Property Card */}
-            <div className="bg-white rounded-xl shadow-2xl overflow-hidden border border-gray-100 transform hover:scale-[1.02] transition duration-300">
-              
-              {/* Image Area */}
-              <div className="h-44 bg-gray-100 relative">
+          <div className="space-y-5 lg:sticky lg:top-8">
+            <div>
+              <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
+                <FaHome className="text-blue-600" />
+                Live Preview
+              </h2>
+
+              <p className="mt-1 text-sm text-gray-500">
+                This is how your property listing will look.
+              </p>
+            </div>
+
+            {/* PROPERTY CARD */}
+
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl">
+              {/* IMAGE */}
+
+              <div className="relative h-52 bg-gray-100">
                 {preview.length > 0 ? (
                   <img
                     src={preview[0]}
-                    alt="Property Preview"
-                    className="w-full h-full object-cover"
+                    alt="Property preview"
+                    className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="h-full flex items-center justify-center text-gray-400 font-medium bg-gray-200/50">
-                    Upload an image to see a preview
+                  <div className="flex h-full items-center justify-center px-6 text-center text-sm font-medium text-gray-400">
+                    Upload property images to preview your listing.
                   </div>
                 )}
+
                 {formData.type && (
-                    <span className="absolute top-3 left-3 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
-                        {formData.type}
-                    </span>
+                  <span className="absolute left-4 top-4 rounded-full bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow">
+                    {formData.type}
+                  </span>
                 )}
               </div>
 
-              {/* Details */}
-              <div className="p-5 space-y-3">
-                <h3 className="text-xl font-extrabold text-gray-900 truncate">
-                  {formData.propertyType || "Property Type"} {formData.bhk ? `- ${formData.bhk}` : ''}
-                </h3>
-                
-                <p className="text-blue-600 font-extrabold text-2xl flex items-center gap-2">
-                  <FaMoneyBillWave className="text-blue-400" /> ₹{formatPrice(formData.price)}
-                </p>
-                
-                <p className="text-gray-600 flex items-start gap-2 text-sm">
-                  <FaMapMarkerAlt className="text-blue-500 mt-1 flex-shrink-0" /> 
-                  <span className="truncate">{formData.address || "Street Address"}, {formData.city || "City"}</span>
+              {/* DETAILS */}
+
+              <div className="space-y-4 p-5">
+                <div>
+                  <h3 className="text-xl font-extrabold text-gray-900">
+                    {formData.propertyType || "Property Type"}
+
+                    {formData.bhk && ` • ${formData.bhk}`}
+                  </h3>
+
+                  <p className="mt-2 flex items-center gap-2 text-xl font-extrabold text-blue-600">
+                    <FaMoneyBillWave className="text-blue-500" />₹
+                    {formatPrice(formData.price)}
+                  </p>
+                </div>
+
+                <p className="flex items-start gap-2 text-sm text-gray-600">
+                  <FaMapMarkerAlt className="mt-1 shrink-0 text-blue-500" />
+
+                  <span>
+                    {formData.address || "Property Address"}
+                    {formData.city && `, ${formData.city}`}
+                  </span>
                 </p>
 
-                <div className="flex flex-wrap gap-4 text-gray-700 text-sm pt-2 border-t border-gray-100">
-                  <div className="flex items-center gap-1">
-                    <FaRulerCombined className="text-blue-500" /> 
-                    <span className="font-semibold">{formData.area || 0}</span> sq.ft
+                <div className="grid grid-cols-2 gap-3 border-y border-gray-100 py-4 text-sm text-gray-700">
+                  <div className="flex items-center gap-2">
+                    <FaRulerCombined className="text-blue-500" />
+
+                    <span>
+                      <strong>{formData.area || "—"}</strong> sq.ft
+                    </span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <FaBed className="text-blue-500" /> 
-                    <span className="font-semibold">{formData.beds || 0}</span> Beds
+
+                  <div className="flex items-center gap-2">
+                    <FaBed className="text-blue-500" />
+
+                    <span>
+                      <strong>{formData.beds || "—"}</strong> Beds
+                    </span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <FaCar className="text-blue-500" /> 
-                    Parking: <span className="font-semibold">{formData.parking || "N/A"}</span>
+
+                  <div className="flex items-center gap-2">
+                    <FaCar className="text-blue-500" />
+
+                    <span>
+                      Parking: <strong>{formData.parking || "—"}</strong>
+                    </span>
                   </div>
                 </div>
-                
-                <p className="text-sm text-gray-500 italic line-clamp-3 pt-2">
-                  {formData.description || "Property description will appear here... keep it brief and attractive for the main card view."}
+
+                <p className="line-clamp-4 text-sm leading-6 text-gray-500">
+                  {formData.description ||
+                    "Your property description will appear here. Add key features, amenities and location advantages to make your listing attractive."}
                 </p>
               </div>
             </div>

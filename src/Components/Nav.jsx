@@ -32,18 +32,18 @@ const Nav = () => {
     setIsOpen(false);
   }, [location]);
 
+  // ✅ Fixed: each dropdown now closes independently when a click lands
+  // outside it, instead of requiring the click to be outside all three refs.
   useEffect(() => {
     const handleDocClick = (e) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target) &&
-        adminRef.current &&
-        !adminRef.current.contains(e.target) &&
-        mobileRef.current &&
-        !mobileRef.current.contains(e.target)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setLoginOpen(false);
+      }
+      if (adminRef.current && !adminRef.current.contains(e.target)) {
         setAdminOpen(false);
+      }
+      if (mobileRef.current && !mobileRef.current.contains(e.target)) {
+        setIsOpen(false);
       }
     };
 
@@ -99,7 +99,7 @@ const Nav = () => {
   // ✅ WhatsApp URL
   const whatsappNumber = "917037989896"; // change this to your number
   const whatsappURL = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
-    getWhatsAppMessage()
+    getWhatsAppMessage(),
   )}`;
 
   return (
@@ -167,6 +167,8 @@ const Nav = () => {
                   type="button"
                   onClick={() => setLoginOpen((prev) => !prev)}
                   className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-full hover:bg-gray-800 transition shadow-md"
+                  aria-haspopup="true"
+                  aria-expanded={loginOpen}
                 >
                   <FaUserShield className="w-5 h-5" />
                   User
@@ -181,6 +183,8 @@ const Nav = () => {
                   type="button"
                   onClick={() => setLoginOpen((prev) => !prev)}
                   className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition shadow-md"
+                  aria-haspopup="true"
+                  aria-expanded={loginOpen}
                 >
                   <FaUserCircle className="w-5 h-5" />
                   <ChevronDown
@@ -246,6 +250,8 @@ const Nav = () => {
                   type="button"
                   onClick={() => setAdminOpen((prev) => !prev)}
                   className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-full hover:bg-gray-800 transition shadow-md"
+                  aria-haspopup="true"
+                  aria-expanded={adminOpen}
                 >
                   <FaUserShield className="w-5 h-5" />
                   Admin
@@ -292,6 +298,8 @@ const Nav = () => {
               type="button"
               onClick={() => setIsOpen((prev) => !prev)}
               className="text-gray-700 focus:outline-none"
+              aria-label={isOpen ? "Close menu" : "Open menu"}
+              aria-expanded={isOpen}
             >
               {isOpen ? (
                 <svg
@@ -352,7 +360,7 @@ const Nav = () => {
                 Buy
               </Link>
               <Link
-                to="/properties/sell"
+                to="/sell-property"
                 onClick={() => setIsOpen(false)}
                 className="text-gray-700 hover:text-indigo-600"
               >
@@ -383,6 +391,7 @@ const Nav = () => {
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-10 right-10 z-50 bg-green-500 text-white rounded-full p-2 shadow-2xl hover:scale-110 hover:bg-green-600 transition-all duration-300 group"
+        aria-label="Chat on WhatsApp"
       >
         <FaWhatsapp className="w-7 h-7 animate-pulse" />
         <span className="absolute right-15 bottom-1/2 translate-y-1/2 opacity-0 group-hover:opacity-100 bg-green-600 text-white text-sm font-semibold px-2 py-1 rounded-lg shadow-md transition-all duration-300">
